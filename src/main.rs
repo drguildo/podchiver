@@ -1,6 +1,6 @@
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::{env, process};
+use std::{fs, io};
 
 use clap::{App, Arg};
 use opml::{Outline, OPML};
@@ -18,7 +18,7 @@ fn main() {
         .get_matches();
 
     if let Some(opml_path) = matches.value_of("opml") {
-        if let Ok(opml_file_contents) = fs::read_to_string(opml_path) {
+        if let Ok(opml_file_contents) = read_file(opml_path) {
             if let Ok(opml) = OPML::new(&opml_file_contents) {
                 for outline in opml.body.outlines {
                     process_outline(outline);
@@ -32,10 +32,12 @@ fn main() {
     }
 
     if let Some(rss_path) = matches.value_of("rss") {
-        if let Ok(rss_file_contents) = fs::read_to_string(rss_path) {
+        if let Ok(rss_file_contents) = read_file(rss_path) {
             if let Ok(channel) = Channel::read_from(rss_file_contents.as_bytes()) {
                 process_channel(channel);
             }
+        } else {
+            eprintln!("Failed to read RSS file")
         }
     }
 }
@@ -88,8 +90,8 @@ fn download_episode(url: &str, episode_title: &str, podcast_title: &str) {
             println!("Downloading {} to {}...", url, pathbuf.display());
 
             let mut request = ureq::get(&url).call().into_reader();
-            let mut out = std::fs::File::create(&pathbuf).expect("Failed to create file");
-            if let Err(error) = std::io::copy(&mut request, &mut out) {
+            let mut out = fs::File::create(&pathbuf).expect("Failed to create file");
+            if let Err(error) = io::copy(&mut request, &mut out) {
                 eprint!("Failed to download podcast: {}", error.to_string());
             }
         } else {
@@ -127,4 +129,13 @@ fn sanitize_string(s: &str) -> String {
         .collect();
 
     sanitized_string
+}
+
+fn read_file(location: &str) -> io::Result<String> {
+    if Url::parse(location).is_ok() {
+        let request = ureq::get(location).timeout_connect(6_000).call();
+        request.into_string()
+    } else {
+        fs::read_to_string(location)
+    }
 }
