@@ -32,10 +32,10 @@ fn process_outline(outline: Outline) {
     let podcast_title = outline.text;
 
     if let Some(url) = outline.xml_url {
-        println!("Fetching {} ({})...", podcast_title, url);
+        print!("Fetching {} ({})...", podcast_title, url);
         let response = ureq::get(&url).timeout_connect(6_000).call();
+        println!(" {}", response.status_text());
         if response.ok() {
-            println!("Response: {}", response.status());
             if let Ok(response_body) = response.into_string() {
                 if let Ok(channel) = Channel::read_from(response_body.as_bytes()) {
                     for item in channel.items() {
@@ -69,7 +69,7 @@ fn download_episode(url: &str, episode_title: &str, podcast_title: &str) {
                 eprintln!("{} already exists", pathbuf.display());
             }
 
-            println!("{}", pathbuf.display());
+            println!("Downloading {} to {}...", url, pathbuf.display());
 
             let mut request = ureq::get(&url).call().into_reader();
             let mut out = std::fs::File::create(&pathbuf).expect("Failed to create file");
