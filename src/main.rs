@@ -2,7 +2,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::{env, process};
 
-use html_escape;
 use opml::{Outline, OPML};
 use rss::Channel;
 use url::Url;
