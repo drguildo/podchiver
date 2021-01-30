@@ -13,7 +13,7 @@ fn main() {
         return;
     }
 
-    let opml_file_path = env::args().skip(1).next().unwrap();
+    let opml_file_path = env::args().nth(1).unwrap();
 
     if let Ok(opml_file_contents) = fs::read_to_string(&opml_file_path) {
         if let Ok(opml) = OPML::new(&opml_file_contents) {
