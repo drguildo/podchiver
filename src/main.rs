@@ -22,11 +22,9 @@ fn main() {
             }
         } else {
             eprintln!("Failed to parse OPML file");
-            return;
         }
     } else {
         eprintln!("Failed to read OPML file");
-        return;
     }
 }
 
