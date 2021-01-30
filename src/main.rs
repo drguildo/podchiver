@@ -2,29 +2,32 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::{env, process};
 
+use clap::{App, Arg};
 use opml::{Outline, OPML};
 use rss::Channel;
 use url::Url;
 
 fn main() {
-    let args = env::args();
-    if args.count() < 2 {
-        eprintln!("No OPML file specified");
-        return;
-    }
+    let matches = App::new(clap::crate_name!())
+        .about(clap::crate_description!())
+        .author(clap::crate_authors!())
+        .version(clap::crate_version!())
+        .arg(Arg::with_name("opml").long("opml").takes_value(true))
+        .setting(clap::AppSettings::ArgRequiredElseHelp)
+        .get_matches();
 
-    let opml_file_path = env::args().nth(1).unwrap();
-
-    if let Ok(opml_file_contents) = fs::read_to_string(&opml_file_path) {
-        if let Ok(opml) = OPML::new(&opml_file_contents) {
-            for outline in opml.body.outlines {
-                process_outline(outline);
+    if let Some(opml_path) = matches.value_of("opml") {
+        if let Ok(opml_file_contents) = fs::read_to_string(opml_path) {
+            if let Ok(opml) = OPML::new(&opml_file_contents) {
+                for outline in opml.body.outlines {
+                    process_outline(outline);
+                }
+            } else {
+                eprintln!("Failed to parse OPML file");
             }
         } else {
-            eprintln!("Failed to parse OPML file");
+            eprintln!("Failed to read OPML file");
         }
-    } else {
-        eprintln!("Failed to read OPML file");
     }
 }
 
