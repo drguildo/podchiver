@@ -92,11 +92,9 @@ fn create_directory(name: &str) {
             process::exit(1);
         }
         println!("Created {}...", name);
-    } else {
-        if !path.is_dir() {
-            eprintln!("{} exists but is not a directory", name);
-            process::exit(2);
-        }
+    } else if !path.is_dir() {
+        eprintln!("{} exists but is not a directory", name);
+        process::exit(2);
     }
 }
 
