@@ -13,6 +13,7 @@ fn main() {
         .author(clap::crate_authors!())
         .version(clap::crate_version!())
         .arg(Arg::with_name("opml").long("opml").takes_value(true))
+        .arg(Arg::with_name("rss").long("rss").takes_value(true))
         .setting(clap::AppSettings::ArgRequiredElseHelp)
         .get_matches();
 
@@ -29,6 +30,14 @@ fn main() {
             eprintln!("Failed to read OPML file");
         }
     }
+
+    if let Some(rss_path) = matches.value_of("rss") {
+        if let Ok(rss_file_contents) = fs::read_to_string(rss_path) {
+            if let Ok(channel) = Channel::read_from(rss_file_contents.as_bytes()) {
+                process_channel(channel);
+            }
+        }
+    }
 }
 
 fn process_outline(outline: Outline) {
@@ -41,14 +50,18 @@ fn process_outline(outline: Outline) {
         if response.ok() {
             if let Ok(response_body) = response.into_string() {
                 if let Ok(channel) = Channel::read_from(response_body.as_bytes()) {
-                    for item in channel.items() {
-                        if let Some(episode_title) = item.title() {
-                            if let Some(enclosure) = item.enclosure() {
-                                download_episode(enclosure.url(), &episode_title, &podcast_title);
-                            }
-                        }
-                    }
+                    process_channel(channel);
                 }
+            }
+        }
+    }
+}
+
+fn process_channel(channel: Channel) {
+    for item in channel.items() {
+        if let Some(episode_title) = item.title() {
+            if let Some(enclosure) = item.enclosure() {
+                download_episode(enclosure.url(), episode_title, &channel.title);
             }
         }
     }
