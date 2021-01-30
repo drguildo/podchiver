@@ -58,7 +58,7 @@ fn download_episode(url: &str, episode_title: &str, podcast_title: &str) {
     create_directory(&sanitized_podcast_title);
 
     if let Ok(parsed_url) = Url::parse(url) {
-        if let Some(file_extension) = parsed_url.path().split(".").last() {
+        if let Some(file_extension) = parsed_url.path().split('.').last() {
             let mut pathbuf = PathBuf::new();
             pathbuf.push(sanitized_podcast_title);
 
