@@ -4,8 +4,10 @@ use std::{fs, io};
 
 use clap::{App, Arg};
 use opml::{Outline, OPML};
-use rss::Channel;
+use podchiver::Podcast;
 use url::Url;
+
+mod podchiver;
 
 fn main() {
     let matches = App::new(clap::crate_name!())
@@ -33,9 +35,8 @@ fn main() {
 
     if let Some(rss_path) = matches.value_of("rss") {
         if let Ok(rss_file_contents) = read_file(rss_path) {
-            if let Ok(channel) = Channel::read_from(rss_file_contents.as_bytes()) {
-                process_channel(channel);
-            }
+            let podcast = Podcast::new(&rss_file_contents).expect("Failed to parse RSS XML");
+            download_episodes(&podcast);
         } else {
             eprintln!("Failed to read RSS file")
         }
@@ -51,84 +52,49 @@ fn process_outline(outline: Outline) {
         println!(" {}", response.status_text());
         if response.ok() {
             if let Ok(response_body) = response.into_string() {
-                if let Ok(channel) = Channel::read_from(response_body.as_bytes()) {
-                    process_channel(channel);
+                if let Ok(podcast) = podchiver::Podcast::new(&response_body) {
+                    download_episodes(&podcast);
+                } else {
+                    eprintln!("Failed to parse RSS XML");
                 }
             }
         }
     }
 }
 
-fn process_channel(channel: Channel) {
-    for item in channel.items() {
-        if let Some(episode_title) = item.title() {
-            if let Some(enclosure) = item.enclosure() {
-                download_episode(enclosure.url(), episode_title, &channel.title);
-            }
+fn download_episodes(podcast: &podchiver::Podcast) {
+    create_directory(&podcast.dir_name());
+
+    for episode in &podcast.episodes {
+        let mut file_path = PathBuf::new();
+        file_path.push(podcast.dir_name());
+        file_path.push(episode.filename());
+
+        println!("Downloading {} to {}...", episode.url, file_path.display());
+
+        let mut request = ureq::get(&episode.url).call().into_reader();
+        let mut out = fs::File::create(file_path).expect("Failed to create file");
+        if let Err(error) = io::copy(&mut request, &mut out) {
+            eprint!("Failed to download podcast: {}", error.to_string());
         }
     }
 }
 
-fn download_episode(url: &str, episode_title: &str, podcast_title: &str) {
-    let sanitized_episode_title = sanitize_string(episode_title);
-    let sanitized_podcast_title = sanitize_string(podcast_title);
-
-    create_directory(&sanitized_podcast_title);
-
-    if let Ok(parsed_url) = Url::parse(url) {
-        if let Some(file_extension) = parsed_url.path().split('.').last() {
-            let mut pathbuf = PathBuf::new();
-            pathbuf.push(sanitized_podcast_title);
-
-            let filename = format!("{}.{}", sanitized_episode_title, file_extension);
-            pathbuf.push(filename);
-
-            if pathbuf.exists() {
-                eprintln!("{} already exists", pathbuf.display());
-            }
-
-            println!("Downloading {} to {}...", url, pathbuf.display());
-
-            let mut request = ureq::get(&url).call().into_reader();
-            let mut out = fs::File::create(&pathbuf).expect("Failed to create file");
-            if let Err(error) = io::copy(&mut request, &mut out) {
-                eprint!("Failed to download podcast: {}", error.to_string());
-            }
-        } else {
-            eprintln!("Failed to extract filename from URL");
-        }
-    } else {
-        eprintln!("Failed to parse URL: {}", url)
-    }
-}
-
-fn create_directory(name: &str) {
-    let path = Path::new(name);
+fn create_directory(path: &Path) {
     if !path.exists() {
-        if let Err(error) = fs::create_dir(name) {
-            eprintln!("Failed to create directory {}: {}", name, error.to_string());
+        if let Err(error) = fs::create_dir(path) {
+            eprintln!(
+                "Failed to create directory {}: {}",
+                path.display(),
+                error.to_string()
+            );
             process::exit(1);
         }
-        println!("Created {}...", name);
+        println!("Created {}...", path.display());
     } else if !path.is_dir() {
-        eprintln!("{} exists but is not a directory", name);
+        eprintln!("{} exists but is not a directory", path.display());
         process::exit(2);
     }
-}
-
-fn sanitize_string(s: &str) -> String {
-    const UNSAFE_CHARS: [char; 9] = ['\\', '/', ':', '*', '?', '\"', '<', '>', '|'];
-
-    let mut decoded_string = String::new();
-
-    html_escape::decode_html_entities_to_string(s, &mut decoded_string);
-
-    let sanitized_string: String = decoded_string
-        .chars()
-        .filter(|c| c.is_ascii() && !UNSAFE_CHARS.contains(c))
-        .collect();
-
-    sanitized_string
 }
 
 fn read_file(location: &str) -> io::Result<String> {
