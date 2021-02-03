@@ -56,6 +56,9 @@ impl Episode {
     }
 }
 
+/// Creates a new string, based on the specified string, but with all of
+/// the characters that are illegal in Windows and Linux path
+/// components.
 fn sanitize_string(s: &str) -> String {
     const UNSAFE_CHARS: [char; 9] = ['\\', '/', ':', '*', '?', '\"', '<', '>', '|'];
 

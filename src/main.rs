@@ -97,6 +97,8 @@ fn create_directory(path: &Path) {
     }
 }
 
+/// Attempt to read and return the file at the specified location,
+/// either via HTTP or the filesystem.
 fn read_file(location: &str) -> io::Result<String> {
     if Url::parse(location).is_ok() {
         let request = ureq::get(location).timeout_connect(6_000).call();
