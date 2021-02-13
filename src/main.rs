@@ -16,8 +16,21 @@ fn main() {
         .version(clap::crate_version!())
         .arg(Arg::with_name("opml").long("opml").takes_value(true))
         .arg(Arg::with_name("rss").long("rss").takes_value(true))
+        .arg(
+            Arg::with_name("download-directory")
+                .short("d")
+                .long("download-directory")
+                .takes_value(true),
+        )
         .setting(clap::AppSettings::ArgRequiredElseHelp)
         .get_matches();
+
+    let download_directory =
+        if let Some(download_directory) = matches.value_of("download-directory") {
+            PathBuf::from(download_directory)
+        } else {
+            std::env::current_dir().expect("Failed to get current directory")
+        };
 
     if let Some(opml_path) = matches.value_of("opml") {
         if let Ok(opml_file_contents) = read_file(opml_path) {
@@ -25,7 +38,7 @@ fn main() {
                 for outline in opml.body.outlines {
                     let podcasts = process_outline(outline);
                     for podcast in podcasts {
-                        download_episodes(&podcast);
+                        download_episodes(&podcast, &download_directory);
                     }
                 }
             } else {
@@ -39,7 +52,7 @@ fn main() {
     if let Some(rss_path) = matches.value_of("rss") {
         if let Ok(rss_file_contents) = read_file(rss_path) {
             let podcast = Podcast::new(&rss_file_contents).expect("Failed to parse RSS XML");
-            download_episodes(&podcast);
+            download_episodes(&podcast, &download_directory);
         } else {
             eprintln!("Failed to read RSS file")
         }
@@ -69,12 +82,15 @@ fn process_outline(outline: Outline) -> Vec<Podcast> {
     podcasts
 }
 
-fn download_episodes(podcast: &podchiver::Podcast) {
-    create_directory(&podcast.dir_name());
+fn download_episodes(podcast: &podchiver::Podcast, download_directory: &Path) {
+    let mut podcast_download_directory = PathBuf::from(&download_directory);
+    podcast_download_directory.push(&podcast.dir_name());
+
+    create_directory(&podcast_download_directory);
 
     for episode in &podcast.episodes {
         let mut file_path = PathBuf::new();
-        file_path.push(podcast.dir_name());
+        file_path.push(&podcast_download_directory);
         file_path.push(episode.filename());
 
         println!("Downloading {} to {}...", episode.url, file_path.display());
