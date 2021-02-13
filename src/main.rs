@@ -23,7 +23,10 @@ fn main() {
         if let Ok(opml_file_contents) = read_file(opml_path) {
             if let Ok(opml) = OPML::new(&opml_file_contents) {
                 for outline in opml.body.outlines {
-                    process_outline(outline);
+                    let podcasts = process_outline(outline);
+                    for podcast in podcasts {
+                        download_episodes(&podcast);
+                    }
                 }
             } else {
                 eprintln!("Failed to parse OPML file");
@@ -43,7 +46,9 @@ fn main() {
     }
 }
 
-fn process_outline(outline: Outline) {
+fn process_outline(outline: Outline) -> Vec<Podcast> {
+    let mut podcasts = Vec::new();
+
     let podcast_title = outline.text;
 
     if let Some(url) = outline.xml_url {
@@ -53,13 +58,15 @@ fn process_outline(outline: Outline) {
         if response.ok() {
             if let Ok(response_body) = response.into_string() {
                 if let Ok(podcast) = podchiver::Podcast::new(&response_body) {
-                    download_episodes(&podcast);
+                    podcasts.push(podcast);
                 } else {
                     eprintln!("Failed to parse RSS XML");
                 }
             }
         }
     }
+
+    podcasts
 }
 
 fn download_episodes(podcast: &podchiver::Podcast) {
