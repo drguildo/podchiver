@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 clap = "2"
-opml = "0.2"
+opml = "1"
 ureq = "1"
 rss = "1"
 url = "2"
