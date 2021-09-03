@@ -33,19 +33,20 @@ fn main() {
         };
 
     if let Some(opml_path) = matches.value_of("opml") {
-        if let Ok(opml_file_contents) = read_file(opml_path) {
-            if let Ok(opml) = OPML::from_str(&opml_file_contents) {
-                for outline in opml.body.outlines {
-                    let podcasts = process_outline(outline);
-                    for podcast in podcasts {
-                        download_episodes(&podcast, &download_directory);
+        match read_file(opml_path) {
+            Ok(opml_file_contents) => {
+                if let Ok(opml) = OPML::from_str(&opml_file_contents) {
+                    for outline in opml.body.outlines {
+                        let podcasts = process_outline(outline);
+                        for podcast in podcasts {
+                            download_episodes(&podcast, &download_directory);
+                        }
                     }
+                } else {
+                    eprintln!("Failed to parse OPML file");
                 }
-            } else {
-                eprintln!("Failed to parse OPML file");
             }
-        } else {
-            eprintln!("Failed to read OPML file");
+            Err(err) => eprintln!("Failed to read OPML file: {}", err),
         }
     }
 
