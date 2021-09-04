@@ -124,7 +124,7 @@ fn create_directory(path: &Path) {
 /// Attempt to read and return the file at the specified location,
 /// either via HTTP or the filesystem.
 fn read_file(location: &str) -> io::Result<String> {
-    if Url::parse(location).is_ok() {
+    if location.starts_with("http") || location.starts_with("https") {
         let request = ureq::get(location).timeout_connect(6_000).call();
         request.into_string()
     } else {
