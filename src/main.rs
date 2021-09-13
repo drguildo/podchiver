@@ -5,7 +5,6 @@ use std::{fs, io};
 use clap::{App, Arg};
 use opml::{Outline, OPML};
 use podchiver::Podcast;
-use url::Url;
 
 mod podchiver;
 
