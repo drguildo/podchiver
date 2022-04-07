@@ -98,7 +98,7 @@ fn download_episodes(podcast: &podchiver::Podcast, download_directory: &Path) {
         let mut request = ureq::get(&episode.url).call().into_reader();
         let mut out = fs::File::create(file_path).expect("Failed to create file");
         if let Err(error) = io::copy(&mut request, &mut out) {
-            eprint!("Failed to download podcast: {}", error.to_string());
+            eprint!("Failed to download podcast: {}", error);
         }
     }
 }
@@ -109,7 +109,7 @@ fn create_directory(path: &Path) {
             eprintln!(
                 "Failed to create directory {}: {}",
                 path.display(),
-                error.to_string()
+                error
             );
             process::exit(1);
         }
