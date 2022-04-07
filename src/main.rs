@@ -106,11 +106,7 @@ fn download_episodes(podcast: &podchiver::Podcast, download_directory: &Path) {
 fn create_directory(path: &Path) {
     if !path.exists() {
         if let Err(error) = fs::create_dir(path) {
-            eprintln!(
-                "Failed to create directory {}: {}",
-                path.display(),
-                error
-            );
+            eprintln!("Failed to create directory {}: {}", path.display(), error);
             process::exit(1);
         }
         println!("Created {}...", path.display());
