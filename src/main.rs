@@ -2,36 +2,35 @@ use std::path::{Path, PathBuf};
 use std::{env, process};
 use std::{fs, io};
 
-use clap::{App, Arg};
+use clap::{Arg, Command};
 use opml::{Outline, OPML};
 use podchiver::Podcast;
 
 mod podchiver;
 
 fn main() {
-    let matches = App::new(clap::crate_name!())
+    let matches = Command::new(clap::crate_name!())
         .about(clap::crate_description!())
         .author(clap::crate_authors!())
         .version(clap::crate_version!())
-        .arg(Arg::with_name("opml").long("opml").takes_value(true))
-        .arg(Arg::with_name("rss").long("rss").takes_value(true))
+        .arg(Arg::new("opml").long("opml"))
+        .arg(Arg::new("rss").long("rss"))
         .arg(
-            Arg::with_name("download-directory")
-                .short("d")
-                .long("download-directory")
-                .takes_value(true),
+            Arg::new("download-directory")
+                .short('d')
+                .long("download-directory"),
         )
-        .setting(clap::AppSettings::ArgRequiredElseHelp)
+        .arg_required_else_help(true)
         .get_matches();
 
     let download_directory =
-        if let Some(download_directory) = matches.value_of("download-directory") {
+        if let Some(download_directory) = matches.get_one::<String>("download-directory") {
             PathBuf::from(download_directory)
         } else {
             std::env::current_dir().expect("Failed to get current directory")
         };
 
-    if let Some(opml_path) = matches.value_of("opml") {
+    if let Some(opml_path) = matches.get_one::<String>("opml") {
         match read_file(opml_path) {
             Ok(opml_file_contents) => {
                 if let Ok(opml) = OPML::from_str(&opml_file_contents) {
@@ -49,7 +48,7 @@ fn main() {
         }
     }
 
-    if let Some(rss_path) = matches.value_of("rss") {
+    if let Some(rss_path) = matches.get_one::<String>("rss") {
         if let Ok(rss_file_contents) = read_file(rss_path) {
             let podcast = Podcast::new(&rss_file_contents).expect("Failed to parse RSS XML");
             download_episodes(&podcast, &download_directory);
