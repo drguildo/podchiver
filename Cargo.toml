@@ -8,6 +8,6 @@ edition = "2018"
 clap = { version = "4", features = ["cargo"] }
 opml = "1"
 ureq = "1"
-rss = "1"
+rss = "2"
 url = "2"
 html-escape = "0.2"
