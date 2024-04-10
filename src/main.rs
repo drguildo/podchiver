@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 use std::{env, process};
 use std::{fs, io};
 
@@ -65,9 +66,9 @@ fn process_outline(outline: Outline) -> Vec<Podcast> {
 
     if let Some(url) = outline.xml_url {
         print!("Fetching {} ({})...", podcast_title, url);
-        let response = ureq::get(&url).timeout_connect(6_000).call();
-        println!(" {}", response.status_text());
-        if response.ok() {
+        let response = ureq::get(&url).timeout(Duration::new(6_000, 0)).call();
+        if let Ok(response) = response {
+            println!(" {}", response.status_text());
             if let Ok(response_body) = response.into_string() {
                 if let Ok(podcast) = podchiver::Podcast::new(&response_body) {
                     podcasts.push(podcast);
@@ -94,10 +95,15 @@ fn download_episodes(podcast: &podchiver::Podcast, download_directory: &Path) {
 
         println!("Downloading {} to {}...", episode.url, file_path.display());
 
-        let mut request = ureq::get(&episode.url).call().into_reader();
-        let mut out = fs::File::create(file_path).expect("Failed to create file");
-        if let Err(error) = io::copy(&mut request, &mut out) {
-            eprint!("Failed to download podcast: {}", error);
+        let request = ureq::get(&episode.url).call();
+        if let Ok(request) = request {
+            let mut reader = request.into_reader();
+            let mut out = fs::File::create(file_path).expect("Failed to create file");
+            if let Err(error) = io::copy(&mut reader, &mut out) {
+                eprintln!("Failed to download podcast: {}", error);
+            }
+        } else {
+            eprintln!("Download HTTP request failed")
         }
     }
 }
@@ -119,8 +125,15 @@ fn create_directory(path: &Path) {
 /// either via HTTP or the filesystem.
 fn read_file(location: &str) -> io::Result<String> {
     if location.starts_with("http") || location.starts_with("https") {
-        let request = ureq::get(location).timeout_connect(6_000).call();
-        request.into_string()
+        let request = ureq::get(location).timeout(Duration::new(6_000, 0)).call();
+        if let Ok(request) = request {
+            request.into_string()
+        } else {
+            io::Result::Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Failed to read HTTP body",
+            ))
+        }
     } else {
         fs::read_to_string(location)
     }
