@@ -2,7 +2,7 @@
 name = "podchiver"
 version = "0.1.0"
 authors = ["Simon Morgan <sjm@sjm.io>"]
-edition = "2018"
+edition = "2024"
 
 [dependencies]
 clap = { version = "4", features = ["cargo"] }
