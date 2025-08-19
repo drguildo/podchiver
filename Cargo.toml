@@ -7,7 +7,7 @@ edition = "2024"
 [dependencies]
 clap = { version = "4", features = ["cargo"] }
 opml = "1"
-ureq = "2"
+ureq = "3"
 rss = "2"
 url = "2"
 html-escape = "0.2"

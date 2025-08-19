@@ -4,7 +4,7 @@ use std::{env, process};
 use std::{fs, io};
 
 use clap::{Arg, Command};
-use opml::{Outline, OPML};
+use opml::{OPML, Outline};
 use podchiver::Podcast;
 
 mod podchiver;
@@ -66,10 +66,13 @@ fn process_outline(outline: Outline) -> Vec<Podcast> {
 
     if let Some(url) = outline.xml_url {
         print!("Fetching {} ({})...", podcast_title, url);
-        let response = ureq::get(&url).timeout(Duration::new(6_000, 0)).call();
-        if let Ok(response) = response {
-            println!(" {}", response.status_text());
-            if let Ok(response_body) = response.into_string() {
+        let config = ureq::Agent::config_builder()
+            .timeout_connect(Some(Duration::new(6_000, 0)))
+            .build();
+        let agent: ureq::Agent = config.into();
+        if let Ok(mut response) = agent.get(&url).call() {
+            println!(" {}", response.status());
+            if let Ok(response_body) = response.body_mut().read_to_string() {
                 if let Ok(podcast) = podchiver::Podcast::new(&response_body) {
                     podcasts.push(podcast);
                 } else {
@@ -88,6 +91,11 @@ fn download_episodes(podcast: &podchiver::Podcast, download_directory: &Path) {
 
     create_directory(&podcast_download_directory);
 
+    let config = ureq::Agent::config_builder()
+        .timeout_connect(Some(Duration::new(6_000, 0)))
+        .build();
+    let agent: ureq::Agent = config.into();
+
     for episode in &podcast.episodes {
         let mut file_path = PathBuf::new();
         file_path.push(&podcast_download_directory);
@@ -95,9 +103,8 @@ fn download_episodes(podcast: &podchiver::Podcast, download_directory: &Path) {
 
         println!("Downloading {} to {}...", episode.url, file_path.display());
 
-        let request = ureq::get(&episode.url).call();
-        if let Ok(request) = request {
-            let mut reader = request.into_reader();
+        if let Ok(response) = agent.get(&episode.url).call() {
+            let mut reader = response.into_body().into_reader();
             let mut out = fs::File::create(file_path).expect("Failed to create file");
             if let Err(error) = io::copy(&mut reader, &mut out) {
                 eprintln!("Failed to download podcast: {}", error);
@@ -124,16 +131,20 @@ fn create_directory(path: &Path) {
 /// Attempt to read and return the file at the specified location,
 /// either via HTTP or the filesystem.
 fn read_file(location: &str) -> io::Result<String> {
+    let config = ureq::Agent::config_builder()
+        .timeout_connect(Some(Duration::new(6_000, 0)))
+        .build();
+    let agent: ureq::Agent = config.into();
+
     if location.starts_with("http") || location.starts_with("https") {
-        let request = ureq::get(location).timeout(Duration::new(6_000, 0)).call();
-        if let Ok(request) = request {
-            request.into_string()
-        } else {
-            io::Result::Err(io::Error::new(
-                io::ErrorKind::Other,
-                "Failed to read HTTP body",
-            ))
-        }
+        let mut response = agent
+            .get(location)
+            .call()
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("HTTP error: {}", e)))?;
+        response
+            .body_mut()
+            .read_to_string()
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Read error: {}", e)))
     } else {
         fs::read_to_string(location)
     }
