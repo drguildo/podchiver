@@ -87,7 +87,7 @@ fn process_outline(outline: Outline) -> Vec<Podcast> {
 
 fn download_episodes(podcast: &podchiver::Podcast, download_directory: &Path) {
     let mut podcast_download_directory = PathBuf::from(&download_directory);
-    podcast_download_directory.push(&podcast.dir_name());
+    podcast_download_directory.push(podcast.dir_name());
 
     create_directory(&podcast_download_directory);
 
@@ -140,11 +140,11 @@ fn read_file(location: &str) -> io::Result<String> {
         let mut response = agent
             .get(location)
             .call()
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("HTTP error: {}", e)))?;
+            .map_err(|e| io::Error::other(format!("HTTP error: {}", e)))?;
         response
             .body_mut()
             .read_to_string()
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Read error: {}", e)))
+            .map_err(|e| io::Error::other(format!("Read error: {}", e)))
     } else {
         fs::read_to_string(location)
     }

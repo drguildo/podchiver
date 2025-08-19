@@ -38,17 +38,16 @@ impl Podcast {
 
 impl Episode {
     pub fn filename(&self) -> PathBuf {
-        if let Ok(parsed_url) = url::Url::parse(&self.url) {
-            if let Some(file_extension) = parsed_url.path().split('.').last() {
-                if let Some(title) = &self.title {
-                    let mut pathbuf = PathBuf::new();
+        if let Ok(parsed_url) = url::Url::parse(&self.url)
+            && let Some(file_extension) = parsed_url.path().split('.').next_back()
+            && let Some(title) = &self.title
+        {
+            let mut pathbuf = PathBuf::new();
 
-                    let filename = format!("{}.{}", sanitize_string(title), file_extension);
-                    pathbuf.push(filename);
+            let filename = format!("{}.{}", sanitize_string(title), file_extension);
+            pathbuf.push(filename);
 
-                    return pathbuf;
-                }
-            }
+            return pathbuf;
         }
 
         // FIXME: This is a terrible default.
