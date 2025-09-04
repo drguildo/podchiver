@@ -1,13 +1,17 @@
+use std::fs;
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::{env, process};
-use std::{fs, io};
 
 use clap::{Arg, Command};
 use opml::{OPML, Outline};
 use podchiver::Podcast;
 
+use crate::progress_indicator::ProgressIndicator;
+
 mod podchiver;
+mod progress_indicator;
 
 fn main() {
     let matches = Command::new(clap::crate_name!())
@@ -99,19 +103,52 @@ fn download_episodes(podcast: &podchiver::Podcast, download_directory: &Path) {
     for episode in &podcast.episodes {
         let mut file_path = PathBuf::new();
         file_path.push(&podcast_download_directory);
+        let filename = episode.filename();
         file_path.push(episode.filename());
 
         println!("Downloading {} to {}...", episode.url, file_path.display());
 
-        if let Ok(response) = agent.get(&episode.url).call() {
-            let mut reader = response.into_body().into_reader();
-            let mut out = fs::File::create(file_path).expect("Failed to create file");
-            if let Err(error) = io::copy(&mut reader, &mut out) {
-                eprintln!("Failed to download podcast: {}", error);
+        if let Ok(mut response) = agent.get(&episode.url).call() {
+            let total_size = response
+                .headers()
+                .get("Content-Length")
+                .and_then(|val| val.to_str().ok()?.parse::<u64>().ok());
+            let mut progress_indicator = if let Some(total) = total_size {
+                Some(ProgressIndicator::new(total, 72))
+            } else {
+                None
+            };
+            let mut reader = response.body_mut().as_reader();
+            let mut out_file = fs::File::create(file_path).expect("Failed to create file");
+            let mut buffer = [0u8; 8192];
+            let mut bytes_downloaded: u64 = 0;
+
+            loop {
+                if let Ok(bytes_read) = reader.read(&mut buffer) {
+                    if bytes_read == 0 {
+                        break;
+                    }
+
+                    if out_file.write_all(&buffer[..bytes_read]).is_err() {
+                        eprintln!("Failed to write buffer");
+                        break;
+                    }
+                    bytes_downloaded += bytes_read as u64;
+
+                    if let Some(progress_indicator) = &mut progress_indicator {
+                        progress_indicator.progress(bytes_read as u64);
+                        progress_indicator.draw();
+                    } else {
+                        print!("\r{}: {} bytes", filename.display(), bytes_downloaded);
+                    }
+                } else {
+                    eprintln!("Failed to read HTTP data")
+                }
             }
         } else {
             eprintln!("Download HTTP request failed")
         }
+        println!();
     }
 }
 
