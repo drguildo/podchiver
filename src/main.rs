@@ -28,6 +28,8 @@ fn main() {
         .arg_required_else_help(true)
         .get_matches();
 
+    // Use the download directory specified on the command line, or the current
+    // working directory if none was specified.
     let download_directory =
         if let Some(download_directory) = matches.get_one::<String>("download-directory") {
             PathBuf::from(download_directory)
@@ -35,6 +37,7 @@ fn main() {
             std::env::current_dir().expect("Failed to get current directory")
         };
 
+    // Read the OPML file specified on the command line.
     if let Some(opml_path) = matches.get_one::<String>("opml") {
         match read_file(opml_path) {
             Ok(opml_file_contents) => {
@@ -53,6 +56,7 @@ fn main() {
         }
     }
 
+    // Read the RSS file specified on the command line.
     if let Some(rss_path) = matches.get_one::<String>("rss") {
         if let Ok(rss_file_contents) = read_file(rss_path) {
             let podcast = Podcast::new(&rss_file_contents).expect("Failed to parse RSS XML");
@@ -63,17 +67,20 @@ fn main() {
     }
 }
 
+/// Process a single OPML outline element, returning a vector of Podcasts.
 fn process_outline(outline: Outline) -> Vec<Podcast> {
     let mut podcasts = Vec::new();
 
     let podcast_title = outline.text;
 
+    // Extract the podcast's RSS file URL from the outline element.
     if let Some(url) = outline.xml_url {
         print!("Fetching {} ({})...", podcast_title, url);
         let config = ureq::Agent::config_builder()
             .timeout_connect(Some(Duration::new(6_000, 0)))
             .build();
         let agent: ureq::Agent = config.into();
+        // Fetch the podcast's RSS file.
         if let Ok(mut response) = agent.get(&url).call() {
             println!(" {}", response.status());
             if let Ok(response_body) = response.body_mut().read_to_string() {
@@ -113,6 +120,8 @@ fn download_episodes(podcast: &podchiver::Podcast, download_directory: &Path) {
                 .headers()
                 .get("Content-Length")
                 .and_then(|val| val.to_str().ok()?.parse::<u64>().ok());
+            // Initialize the progress indicator if the Content-Length header
+            // was present.
             let mut progress_indicator = if let Some(total) = total_size {
                 Some(ProgressIndicator::new(total, 72))
             } else {
@@ -126,6 +135,7 @@ fn download_episodes(podcast: &podchiver::Podcast, download_directory: &Path) {
             loop {
                 if let Ok(bytes_read) = reader.read(&mut buffer) {
                     if bytes_read == 0 {
+                        // We've reached the end of the file.
                         break;
                     }
 
@@ -135,6 +145,7 @@ fn download_episodes(podcast: &podchiver::Podcast, download_directory: &Path) {
                     }
                     bytes_downloaded += bytes_read as u64;
 
+                    // Update the progress indicator.
                     if let Some(progress_indicator) = &mut progress_indicator {
                         progress_indicator.progress(bytes_read as u64);
                         progress_indicator.draw();
@@ -165,8 +176,8 @@ fn create_directory(path: &Path) {
     }
 }
 
-/// Attempt to read and return the file at the specified location,
-/// either via HTTP or the filesystem.
+/// Attempt to read and return the file at the specified location, either via
+/// HTTP or the filesystem.
 fn read_file(location: &str) -> io::Result<String> {
     let config = ureq::Agent::config_builder()
         .timeout_connect(Some(Duration::new(6_000, 0)))
