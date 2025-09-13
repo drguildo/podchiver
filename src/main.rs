@@ -100,7 +100,15 @@ fn download_episodes(podcast: &podchiver::Podcast, download_directory: &Path) {
     let mut podcast_download_directory = PathBuf::from(&download_directory);
     podcast_download_directory.push(podcast.dir_name());
 
-    create_directory(&podcast_download_directory);
+    if let Err(error) = fs::create_dir(&podcast_download_directory) {
+        eprintln!(
+            "Failed to create directory {}: {}",
+            podcast_download_directory.display(),
+            error
+        );
+        process::exit(1);
+    }
+    println!("Created {}...", podcast_download_directory.display());
 
     let config = ureq::Agent::config_builder()
         .timeout_connect(Some(Duration::new(6_000, 0)))
@@ -160,19 +168,6 @@ fn download_episodes(podcast: &podchiver::Podcast, download_directory: &Path) {
             eprintln!("Download HTTP request failed")
         }
         println!();
-    }
-}
-
-fn create_directory(path: &Path) {
-    if !path.exists() {
-        if let Err(error) = fs::create_dir(path) {
-            eprintln!("Failed to create directory {}: {}", path.display(), error);
-            process::exit(1);
-        }
-        println!("Created {}...", path.display());
-    } else if !path.is_dir() {
-        eprintln!("{} exists but is not a directory", path.display());
-        process::exit(2);
     }
 }
 
