@@ -130,11 +130,7 @@ fn download_episodes(podcast: &podchiver::Podcast, download_directory: &Path) {
                 .and_then(|val| val.to_str().ok()?.parse::<u64>().ok());
             // Initialize the progress indicator if the Content-Length header
             // was present.
-            let mut progress_indicator = if let Some(total) = total_size {
-                Some(ProgressIndicator::new(total, 72))
-            } else {
-                None
-            };
+            let mut progress_indicator = total_size.map(|total| ProgressIndicator::new(total, 72));
             let mut reader = response.body_mut().as_reader();
             let mut out_file = fs::File::create(file_path).expect("Failed to create file");
             let mut buffer = [0u8; 8192];
