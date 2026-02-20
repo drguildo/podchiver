@@ -18,8 +18,16 @@ fn main() {
         .about(clap::crate_description!())
         .author(clap::crate_authors!())
         .version(clap::crate_version!())
-        .arg(Arg::new("opml").long("opml"))
-        .arg(Arg::new("rss").long("rss"))
+        .subcommand(
+            Command::new("opml")
+                .about("Download all podcasts listed in OPML")
+                .arg(Arg::new("file").required(true)),
+        )
+        .subcommand(
+            Command::new("rss")
+                .about("Download all episodes in RSS feed")
+                .arg(Arg::new("file").required(true)),
+        )
         .arg(
             Arg::new("download-directory")
                 .short('d')
@@ -37,33 +45,41 @@ fn main() {
             std::env::current_dir().expect("Failed to get current directory")
         };
 
-    // Read the OPML file specified on the command line.
-    if let Some(opml_path) = matches.get_one::<String>("opml") {
-        match read_file(opml_path) {
-            Ok(opml_file_contents) => {
-                if let Ok(opml) = OPML::from_str(&opml_file_contents) {
-                    for outline in opml.body.outlines {
-                        let podcasts = process_outline(outline);
-                        for podcast in podcasts {
-                            download_episodes(&podcast, &download_directory);
+    match matches.subcommand() {
+        Some(("opml", args)) => {
+            match read_file(
+                args.get_one::<String>("file")
+                    .expect("file arg is required"),
+            ) {
+                Ok(opml_file_contents) => {
+                    if let Ok(opml) = OPML::from_str(&opml_file_contents) {
+                        for outline in opml.body.outlines {
+                            let podcasts = process_outline(outline);
+                            for podcast in podcasts {
+                                download_episodes(&podcast, &download_directory);
+                            }
                         }
+                    } else {
+                        eprintln!("Failed to parse OPML file");
                     }
-                } else {
-                    eprintln!("Failed to parse OPML file");
                 }
+                Err(err) => eprintln!("Failed to read OPML file: {}", err),
             }
-            Err(err) => eprintln!("Failed to read OPML file: {}", err),
         }
-    }
-
-    // Read the RSS file specified on the command line.
-    if let Some(rss_path) = matches.get_one::<String>("rss") {
-        if let Ok(rss_file_contents) = read_file(rss_path) {
-            let podcast = Podcast::new(&rss_file_contents).expect("Failed to parse RSS XML");
-            download_episodes(&podcast, &download_directory);
-        } else {
-            eprintln!("Failed to read RSS file")
+        Some(("rss", args)) => {
+            match read_file(
+                args.get_one::<String>("file")
+                    .expect("file arg is required"),
+            ) {
+                Ok(rss_file_contents) => {
+                    let podcast =
+                        Podcast::new(&rss_file_contents).expect("Failed to parse RSS XML");
+                    download_episodes(&podcast, &download_directory);
+                }
+                Err(err) => eprintln!("Failed to read RSS file: {}", err),
+            }
         }
+        _ => panic!("invalid subcommand"),
     }
 }
 
