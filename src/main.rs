@@ -31,7 +31,8 @@ fn main() {
         .arg(
             Arg::new("download-directory")
                 .short('d')
-                .long("download-directory"),
+                .long("download-directory")
+                .help("The directory to store downloaded podcasts in"),
         )
         .subcommand_required(true)
         .get_matches();
