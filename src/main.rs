@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::{env, process};
 
-use clap::{Arg, Command};
+use clap::{Arg, ArgAction, Command};
 use opml::{OPML, Outline};
 use podchiver::Podcast;
 
@@ -34,6 +34,13 @@ fn main() {
                 .long("download-directory")
                 .help("The directory to store downloaded podcasts in"),
         )
+        .arg(
+            Arg::new("no-date")
+                .short('n')
+                .long("no-date")
+                .action(ArgAction::SetFalse)
+                .help("Don't prefix episode filenames with the publish date"),
+        )
         .subcommand_required(true)
         .get_matches();
 
@@ -46,6 +53,8 @@ fn main() {
             std::env::current_dir().expect("Failed to get current directory")
         };
 
+    let no_date = matches.get_flag("no-date");
+
     match matches.subcommand() {
         Some(("opml", args)) => {
             match read_file(
@@ -57,7 +66,7 @@ fn main() {
                         for outline in opml.body.outlines {
                             let podcasts = process_outline(outline);
                             for podcast in podcasts {
-                                download_episodes(&podcast, &download_directory);
+                                download_episodes(&podcast, &download_directory, no_date);
                             }
                         }
                     } else {
@@ -75,7 +84,7 @@ fn main() {
                 Ok(rss_file_contents) => {
                     let podcast =
                         Podcast::new(&rss_file_contents).expect("Failed to parse RSS XML");
-                    download_episodes(&podcast, &download_directory);
+                    download_episodes(&podcast, &download_directory, no_date);
                 }
                 Err(err) => eprintln!("Failed to read RSS file: {}", err),
             }
@@ -113,7 +122,7 @@ fn process_outline(outline: Outline) -> Vec<Podcast> {
     podcasts
 }
 
-fn download_episodes(podcast: &podchiver::Podcast, download_directory: &Path) {
+fn download_episodes(podcast: &podchiver::Podcast, download_directory: &Path, no_date: bool) {
     let mut podcast_download_directory = PathBuf::from(&download_directory);
     podcast_download_directory.push(podcast.dir_name());
 
@@ -135,8 +144,8 @@ fn download_episodes(podcast: &podchiver::Podcast, download_directory: &Path) {
     for episode in &podcast.episodes {
         let mut file_path = PathBuf::new();
         file_path.push(&podcast_download_directory);
-        let filename = episode.filename();
-        file_path.push(episode.filename());
+        let filename = episode.filename(no_date);
+        file_path.push(filename.as_path());
 
         println!("Downloading {} to {}...", episode.url, file_path.display());
 

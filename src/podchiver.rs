@@ -1,8 +1,11 @@
 use std::path::PathBuf;
 
+use chrono::{DateTime, FixedOffset};
+
 pub struct Episode {
     pub title: Option<String>,
     pub url: String,
+    pub pub_date: Option<DateTime<FixedOffset>>,
 }
 
 pub struct Podcast {
@@ -17,10 +20,16 @@ impl Podcast {
         let mut episodes: Vec<Episode> = Vec::new();
 
         for item in channel.items() {
+            let date_time = item
+                .pub_date
+                .as_deref()
+                .and_then(|d| DateTime::parse_from_rfc2822(d).ok());
+
             if let Some(enclose) = item.enclosure() {
                 episodes.push(Episode {
                     title: item.title.clone(),
                     url: enclose.url.clone(),
+                    pub_date: date_time,
                 })
             }
         }
@@ -37,14 +46,24 @@ impl Podcast {
 }
 
 impl Episode {
-    pub fn filename(&self) -> PathBuf {
+    pub fn filename(&self, no_date: bool) -> PathBuf {
         if let Ok(parsed_url) = url::Url::parse(&self.url)
             && let Some(file_extension) = parsed_url.path().split('.').next_back()
             && let Some(title) = &self.title
         {
             let mut pathbuf = PathBuf::new();
 
-            let filename = format!("{}.{}", sanitize_string(title), file_extension);
+            let filename = if no_date && let Some(pub_date) = &self.pub_date {
+                let date_prefix = pub_date.format("%Y%m%d-%H%M%SZ");
+                format!(
+                    "{}_{}.{}",
+                    date_prefix,
+                    sanitize_string(title),
+                    file_extension
+                )
+            } else {
+                format!("{}.{}", sanitize_string(title), file_extension)
+            };
             pathbuf.push(filename);
 
             return pathbuf;
