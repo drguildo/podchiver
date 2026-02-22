@@ -33,7 +33,7 @@ fn main() {
                 .short('d')
                 .long("download-directory"),
         )
-        .arg_required_else_help(true)
+        .subcommand_required(true)
         .get_matches();
 
     // Use the download directory specified on the command line, or the current
